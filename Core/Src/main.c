@@ -26,6 +26,8 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -93,10 +95,6 @@ DIR  items[256];   /* array of dir struct */
 UINT items_sz=0;
 
 Screen screen;
-uint32_t SX, SY;
-uint32_t *cosine;
-uint32_t *sine;
-
 char buffer[STRING_SZ];
 /* USER CODE END PV */
 
@@ -297,8 +295,8 @@ int main(void)
   uSDThreadHandle = osThreadCreate(osThread(uSDThread), NULL);
 
   /* definition and creation of LCDThread */
- // osThreadDef(LCDThread, StartLCDThread, osPriorityIdle, 0, 1024);
- // LCDThreadHandle = osThreadCreate(osThread(LCDThread), NULL);
+  //osThreadDef(LCDThread, StartLCDThread, osPriorityIdle, 0, 1024);
+  //LCDThreadHandle = osThreadCreate(osThread(LCDThread), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
@@ -1431,6 +1429,7 @@ FRESULT scan_files (char* path, DIR* items, UINT *items_sz)        /* Start node
 				printf("%s\n", buffer);
 				if (*items_sz>255) break;
 				items[*items_sz]=dir;
+
 				snprintf(buffer, sizeof(buffer), "DIR.dir pointer %x %x\n", dir.dir, items[*items_sz].dir);
 				printf("%s\n", buffer);
 				(*items_sz)++;
@@ -1471,6 +1470,7 @@ FRESULT read_filename(char* path, DIR target_dir, char* fname)        /* Start n
 
 	return res;
 }
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartuSDThread */
@@ -1484,6 +1484,8 @@ FRESULT read_filename(char* path, DIR target_dir, char* fname)        /* Start n
 void StartuSDThread(void const * argument)
 {
   /* USER CODE BEGIN 5 */
+	sFONT *font= (sFONT*) malloc(sizeof(sFONT));
+	if (!font) Error_Handler();
 	BSP_LED_Off(LED1);
 
 	Screen_Init(&screen);
@@ -1497,6 +1499,9 @@ void StartuSDThread(void const * argument)
 	BSP_LCD_Clear(LCD_COLOR_RED);//clear the LCD on blue color
 	BSP_LCD_SetBackColor(LCD_COLOR_BLUE);//set text background color
 	BSP_LCD_SetTextColor(LCD_COLOR_WHITE);//set text color
+
+    uint32_t SX=BSP_LCD_GetXSize();
+	uint32_t SY=BSP_LCD_GetYSize();
 
 	/*##-1- Link the micro SD disk I/O driver ##################################*/
 	if(FATFS_LinkDriver(&SD_Driver, SDPath) == 0)
@@ -1529,7 +1534,14 @@ void StartuSDThread(void const * argument)
 			if (res != FR_OK) continue;
 			printf("%s\n", buffer);
 		}
+
+		snprintf(buffer, sizeof(buffer), "==============================================");
+		printf("%s\n", buffer);
 	}
+
+	BSP_LCD_SetFont(&Font12);
+	font = BSP_LCD_GetFont();
+	uint16_t Height = font->Height;
 
 	/* Infinite Loop */
 	for( ;; )
@@ -1540,16 +1552,19 @@ void StartuSDThread(void const * argument)
 		BSP_LCD_SetBackColor(LCD_COLOR_BLUE);//set text background color
 		BSP_LCD_SetTextColor(LCD_COLOR_WHITE);//set text color
 
-		for (UINT it=0; it<items_sz; it++){
+		for (UINT it=0, offset=0; it<items_sz; it++){
 			char path[2]="/";
 			FRESULT res = read_filename(path, items[it], buffer);
 			if (res != FR_OK) continue;
-			BSP_LCD_DisplayStringAt(0, 24*(it%11)+5, (uint8_t*)buffer, LEFT_MODE);
-			if ((it%11)==10){
+
+			BSP_LCD_SetFont(&Font12);
+			BSP_LCD_DisplayStringAt(0, Height*(offset%(SY/Height))+5, (uint8_t*)buffer, LEFT_MODE);
+			if ((offset%(SY/Height))==SY/Height-1){
 			   Screen_Flip_Buffers(&screen);
 			   BSP_LCD_Clear(LCD_COLOR_RED);//clear the LCD on blue color
 			   osDelay(1000);
 			}
+			offset++;
 		}
 		Screen_Flip_Buffers(&screen);
 		osDelay(1000);
@@ -1557,91 +1572,6 @@ void StartuSDThread(void const * argument)
 
   /* USER CODE END 5 */
 }
-
-///* USER CODE END Header_StartuSDThread */
-//void StartuSDThread(void const * argument)
-//{
-//  /* USER CODE BEGIN 5 */
-//	FRESULT res;                                          /* FatFs function common result code */
-//	uint32_t byteswritten, bytesread;                     /* File write/read counts */
-//	uint8_t wtext[] = "This is STM32 working with FatFs"; /* File write buffer */
-//	uint8_t rtext[100];                                   /* File read buffer */
-//
-//	BSP_LED_Off(LED1);
-//
-//	/*##-1- Link the micro SD disk I/O driver ##################################*/
-//	if(FATFS_LinkDriver(&SD_Driver, SDPath) == 0)
-//	{
-//		/*##-2- Register the file system object to the FatFs module ##############*/
-//		if(f_mount(&SDFatFs, (TCHAR const*)SDPath, 0) != FR_OK)
-//		{
-//			/* FatFs Initialization Error */
-//			Error_Handler();
-//		}
-//		/*##-3- Create a FAT file system (format) on the logical drive #########*/
-//		/* WARNING: Formatting the uSD card will delete all content on the device */
-//		if(f_mkfs((TCHAR const*)SDPath, FM_ANY, 0, workBuffer, sizeof(workBuffer)) != FR_OK)
-//		{
-//			/* FatFs Format Error */
-//			Error_Handler();
-//		}
-//		/*##-4- Create and Open a new text file object with write access #####*/
-//		if(f_open(&MyFile, "STM32.TXT", FA_CREATE_ALWAYS | FA_WRITE) != FR_OK)
-//		{
-//			/* 'STM32.TXT' file Open for write Error */
-//			Error_Handler();
-//		}
-//		/*##-5- Write data to the text file ################################*/
-//		res = f_write(&MyFile, wtext, sizeof(wtext), (void *)&byteswritten);
-//
-//		if((byteswritten == 0) || (res != FR_OK))
-//		{
-//			/* 'STM32.TXT' file Write or EOF Error */
-//			Error_Handler();
-//		}
-//		/*##-6- Close the open text file #################################*/
-//		f_close(&MyFile);
-//
-//		/*##-7- Open the text file object with read access ###############*/
-//		if(f_open(&MyFile, "STM32.TXT", FA_READ) != FR_OK)
-//		{
-//			/* 'STM32.TXT' file Open for read Error */
-//			Error_Handler();
-//		}
-//		/*##-8- Read data from the text file ###########################*/
-//		res = f_read(&MyFile, rtext, sizeof(rtext), (UINT*)&bytesread);
-//
-//		if((bytesread == 0) || (res != FR_OK))
-//		{
-//			/* 'STM32.TXT' file Read or EOF Error */
-//			Error_Handler();
-//		}
-//		/*##-9- Close the open text file #############################*/
-//		f_close(&MyFile);
-//
-//		/*##-10- Compare read data with the expected data ############*/
-//		if ((bytesread != byteswritten))
-//		{
-//			/* Read data is different from the expected data */
-//			Error_Handler();
-//		}
-//		else
-//		{
-//			/* Success of the demo: no error occurrence */
-//			BSP_LED_On(LED1);
-//		}
-//
-//		/*##-11- Unlink the micro SD disk I/O driver ###############################*/
-//		FATFS_UnLinkDriver(SDPath);
-//	}
-//
-//	/* Infinite Loop */
-//	for( ;; )
-//	{
-//		osDelay(1);
-//	}
-//  /* USER CODE END 5 */
-//}
 
 /* USER CODE BEGIN Header_StartLCDThread */
 /**
@@ -1666,8 +1596,8 @@ void StartLCDThread(void const * argument)
 	BSP_LCD_SetBackColor(LCD_COLOR_BLUE);//set text background color
 	BSP_LCD_SetTextColor(LCD_COLOR_WHITE);//set text color
 
-    SX=BSP_LCD_GetXSize();
-	SY=BSP_LCD_GetYSize();
+    uint32_t SX=BSP_LCD_GetXSize();
+	uint32_t SY=BSP_LCD_GetYSize();
 
 	/* Infinite loop */
 	for(;;)
