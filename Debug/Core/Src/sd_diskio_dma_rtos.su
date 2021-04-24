@@ -1,0 +1,8 @@
+sd_diskio_dma_rtos.c:118:16:SD_CheckStatus	16	static
+sd_diskio_dma_rtos.c:135:9:SD_initialize	40	static
+sd_diskio_dma_rtos.c:174:9:SD_status	16	static
+sd_diskio_dma_rtos.c:187:9:SD_read	48	static
+sd_diskio_dma_rtos.c:241:9:SD_write	48	static
+sd_diskio_dma_rtos.c:294:9:SD_ioctl	56	static
+sd_diskio_dma_rtos.c:344:6:BSP_SD_WriteCpltCallback	8	static
+sd_diskio_dma_rtos.c:358:6:BSP_SD_ReadCpltCallback	8	static
